@@ -1,1 +1,1 @@
-OpenInstinct secure vault setup
+Lever secure vault setup

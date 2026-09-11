@@ -5,6 +5,15 @@ export default defineConfig({
   resolve: {
     alias: [
       {
+        find: /^workflow\/api$/u,
+        replacement: fileURLToPath(
+          new URL(
+            "node_modules/eve/dist/src/compiled/@workflow/core/runtime.js",
+            import.meta.url
+          )
+        ),
+      },
+      {
         find: "server-only",
         replacement: fileURLToPath(
           new URL("tests/helpers/server-only.ts", import.meta.url)

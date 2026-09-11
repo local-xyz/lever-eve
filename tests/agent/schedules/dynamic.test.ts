@@ -37,8 +37,11 @@ vi.mock("@db/services/scheduled-agent-jobs", () => ({
   setScheduledRunSession: services.setSession,
 }));
 vi.mock("@agent/channels/linq", () => ({ default: { channel: "linq" } }));
-vi.mock("@agent/lib/schedules/request", () => ({
+vi.mock("@shared/eve/request", () => ({
   postScheduledReport: requests.report,
+  postScheduledRunRoute: vi
+    .fn<() => Promise<Response>>()
+    .mockResolvedValue(new Response(null, { status: 202 })),
 }));
 vi.mock("@agent/channels/scheduled-run", () => ({
   default: { channel: "scheduled-run" },
@@ -258,7 +261,7 @@ describe("scheduled report delivery", () => {
 });
 
 async function runSchedule(to: ScheduleToFn) {
-  let task: Promise<unknown> | undefined;
+  const tasks: Promise<unknown>[] = [];
   const args: ScheduleHandlerArgs = {
     appAuth: {
       attributes: {},
@@ -268,11 +271,11 @@ async function runSchedule(to: ScheduleToFn) {
     },
     to,
     waitUntil(backgroundTask) {
-      task = backgroundTask;
+      tasks.push(backgroundTask);
     },
   };
   dynamicSchedule.run(args);
-  await task;
+  await Promise.all(tasks);
 }
 
 const resultOutcome = {

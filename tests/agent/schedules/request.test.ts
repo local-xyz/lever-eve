@@ -28,7 +28,7 @@ vi.mock("@shared/environment/origin", () => ({
   applicationOrigin: () => "https://example.com",
 }));
 
-import { postScheduledRunRoute } from "@agent/lib/schedules/request";
+import { postScheduledRunRoute } from "@shared/eve/request";
 
 describe("scheduled run requests", () => {
   beforeEach(() => {

@@ -1,3 +1,6 @@
+import { clearConnectionEnrichment } from "@db/services/connection-enrichment";
+import { after } from "next/server";
+import { postScheduledRunRoute } from "@shared/eve/request";
 import { gateway } from "ai";
 import { revokeToken, startAuthorization } from "@vercel/connect";
 import { z } from "zod";
@@ -31,14 +34,17 @@ export const appRouter = createTRPCRouter({
       .input(z.enum(["connect", "disconnect"]))
       .mutation(async ({ ctx, input }) => {
         if (input === "disconnect") {
+          await clearConnectionEnrichment(ctx.scope, "gmail", "cancelled");
           await revokeToken(env.GOOGLE_CONNECTOR_UID, {
             subject: googleWorkspaceSubject(ctx.scope.userId),
           });
           return { redirectTo: "/?google=disconnected" };
         }
 
-        const callbackUrl = new URL("/", ctx.origin);
-        callbackUrl.searchParams.set("google", "connected");
+        const callbackUrl = new URL(
+          "/api/connections/google/connected",
+          ctx.origin
+        );
         return {
           redirectTo: await startGoogleWorkspaceAuthorization(
             ctx.scope,
@@ -70,7 +76,21 @@ export const appRouter = createTRPCRouter({
   vault: {
     create: protectedProcedure
       .input(vaultCreateItemSchema)
-      .mutation(({ ctx, input }) => saveVaultItem(ctx.scope, input)),
+      .mutation(async ({ ctx, input }) => {
+        const saved = await saveVaultItem(ctx.scope, input);
+        if (saved.notificationQueued)
+          after(async () => {
+            try {
+              await postScheduledRunRoute(
+                "/eve/v1/internal/vault/dispatch",
+                {}
+              );
+            } catch {
+              console.warn("[vault] Completion queued for scheduled delivery.");
+            }
+          });
+        return saved;
+      }),
     import: protectedProcedure
       .input(vaultImportItemsSchema)
       .mutation(async ({ ctx, input }) => {

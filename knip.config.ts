@@ -17,6 +17,9 @@ export default {
     "taze.config.ts",
   ],
   ignoreDependencies: [
+    // Eve supplies and compiles the Workflow SDK virtual modules.
+    "workflow",
+    "workflow/api",
     // Type owners referenced by the Eve declaration patch, which Knip does not parse.
     "@linqapp/chat-sdk-adapter",
     "chat",

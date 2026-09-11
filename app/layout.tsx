@@ -9,7 +9,7 @@ import "./globals.css";
 
 export const metadata: Metadata = {
   metadataBase: new URL(applicationOrigin()),
-  title: "OpenInstinct",
+  title: "Lever",
   description:
     "A self-hosted personal agent with private credentials and Kernel-powered browser execution.",
 };

@@ -2,7 +2,7 @@ import { defineDynamic, defineTool, type ToolContext } from "eve/tools";
 import { z } from "zod";
 import { resolveModeValue } from "@agent/lib/mode";
 import { scheduledReportIdentity } from "@agent/lib/schedules/identity";
-import { postScheduledRunRoute } from "@agent/lib/schedules/request";
+import { postScheduledRunRoute } from "@shared/eve/request";
 import {
   scheduleListSummary,
   scheduleOwner,

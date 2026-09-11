@@ -29,7 +29,7 @@ async function initializeAuthWithRetry() {
 async function initializeAuth() {
   const { betterAuthSecret } = await getInstallationSecrets();
   return betterAuth({
-    appName: "Local Vault Assistant",
+    appName: "Lever",
     baseURL: betterAuthBaseURL(),
     database: drizzleAdapter(db, {
       provider: "pg",
@@ -92,7 +92,7 @@ export async function sendPhoneCode({
       idempotencyKey: `auth-otp-${createHash("sha256")
         .update(`${to}\u0000${code}`)
         .digest("hex")}`,
-      message: `Local Vault Assistant sign-in code: ${code}. Expires in 5 minutes.`,
+      message: `Lever sign-in code: ${code}. Expires in 5 minutes.`,
       to,
     });
   } catch (error) {

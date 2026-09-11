@@ -7,6 +7,7 @@ import { Button } from "@web/components/ui/button";
 import { DialogFooter } from "@web/components/ui/dialog";
 import { FieldGroup } from "@web/components/ui/field";
 import { serializeAddressVaultPayload } from "@shared/vault/schema";
+import { useVaultSetupRequestId } from "../setup";
 import { api } from "@web/trpc/client";
 import { FormField } from "../field";
 
@@ -29,10 +30,13 @@ export function AddressForm({
   readonly onSaved: () => void;
 }) {
   const router = useRouter();
+  const setupRequestId = useVaultSetupRequestId("address");
+  const [notified, setNotified] = useState(false);
   const create = api.vault.create.useMutation({
-    onSuccess: () => {
+    onSuccess: (saved) => {
       router.refresh();
-      onSaved();
+      if (saved.notificationQueued) setNotified(true);
+      else onSaved();
     },
   });
   const [attempted, setAttempted] = useState(false);
@@ -57,6 +61,7 @@ export function AddressForm({
     setAttempted(true);
     if (!result.success) return;
     create.mutate({
+      setupRequestId,
       account: "",
       kind: "address",
       label: result.data.nickname,
@@ -72,8 +77,22 @@ export function AddressForm({
     setForm((current) => ({ ...current, [field]: value }));
   };
 
+  if (notified)
+    return (
+      <div className="space-y-4">
+        <output>
+          Saved securely. Lever will be notified automatically and continue when
+          the remaining details are ready.
+        </output>
+        <Button onClick={onSaved} type="button">
+          Done
+        </Button>
+      </div>
+    );
+
   return (
     <form noValidate onSubmit={submit}>
+      {create.error ? <p role="alert">{create.error.message}</p> : null}
       <FieldGroup>
         <div className="grid gap-3 sm:grid-cols-2">
           <FormField

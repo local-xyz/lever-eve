@@ -19,6 +19,7 @@ import {
   loginOriginSchema,
   serializeLoginVaultPayload,
 } from "@shared/vault/schema";
+import { useVaultSetupRequestId } from "../setup";
 import { api } from "@web/trpc/client";
 import { FormField } from "../field";
 
@@ -69,10 +70,13 @@ export function LoginForm({
   readonly onSaved: () => void;
 }) {
   const router = useRouter();
+  const setupRequestId = useVaultSetupRequestId("login");
+  const [notified, setNotified] = useState(false);
   const create = api.vault.create.useMutation({
-    onSuccess: () => {
+    onSuccess: (saved) => {
       router.refresh();
-      onSaved();
+      if (saved.notificationQueued) setNotified(true);
+      else onSaved();
     },
   });
   const [attempted, setAttempted] = useState(false);
@@ -96,6 +100,7 @@ export function LoginForm({
 
     const authentication = loginAuthentication(result.data);
     create.mutate({
+      setupRequestId,
       account: "",
       kind: "login",
       label: result.data.nickname,
@@ -114,8 +119,22 @@ export function LoginForm({
 
   const passwordOptional = form.identifierType !== "username";
 
+  if (notified)
+    return (
+      <div className="space-y-4">
+        <output>
+          Saved securely. Lever will be notified automatically and continue when
+          the remaining details are ready.
+        </output>
+        <Button onClick={onSaved} type="button">
+          Done
+        </Button>
+      </div>
+    );
+
   return (
     <form noValidate onSubmit={submit}>
+      {create.error ? <p role="alert">{create.error.message}</p> : null}
       <FieldGroup>
         {initialLabel ? null : (
           <FormField

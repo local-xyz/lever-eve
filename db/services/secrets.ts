@@ -5,10 +5,11 @@ import { db, encryptedSecrets } from "@db";
 export async function writeEncryptedSecret(
   scope: AccessScope,
   id: string,
-  encryptedValue: string
+  encryptedValue: string,
+  connection: Pick<typeof db, "insert"> = db
 ) {
   const updatedAt = new Date();
-  await db
+  await connection
     .insert(encryptedSecrets)
     .values({
       encryptedValue,

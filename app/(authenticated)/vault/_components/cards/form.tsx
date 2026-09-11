@@ -18,6 +18,7 @@ import {
   paymentCardType,
   serializePaymentCard,
 } from "@shared/vault/schema";
+import { useVaultSetupRequestId } from "../setup";
 import { api } from "@web/trpc/client";
 
 const paymentCardFormSchema = z.object({
@@ -47,10 +48,13 @@ export function CardForm({
   readonly onSaved: () => void;
 }) {
   const router = useRouter();
+  const setupRequestId = useVaultSetupRequestId("payment");
+  const [notified, setNotified] = useState(false);
   const create = api.vault.create.useMutation({
-    onSuccess: () => {
+    onSuccess: (saved) => {
       router.refresh();
-      onSaved();
+      if (saved.notificationQueued) setNotified(true);
+      else onSaved();
     },
   });
   const [attempted, setAttempted] = useState(false);
@@ -80,6 +84,7 @@ export function CardForm({
     const brand = paymentCardBrand(result.data.cardNumber);
     const lastFour = result.data.cardNumber.slice(-4);
     create.mutate({
+      setupRequestId,
       account: `${brand} · •••• ${lastFour}`,
       kind: "payment",
       label: result.data.nickname || `${brand} ${lastFour}`,
@@ -96,8 +101,22 @@ export function CardForm({
     });
   };
 
+  if (notified)
+    return (
+      <div className="space-y-4">
+        <output>
+          Saved securely. Lever will be notified automatically and continue when
+          the remaining details are ready.
+        </output>
+        <Button onClick={onSaved} type="button">
+          Done
+        </Button>
+      </div>
+    );
+
   return (
     <form noValidate onSubmit={submit}>
+      {create.error ? <p role="alert">{create.error.message}</p> : null}
       <FieldGroup>
         <div className="grid gap-3 sm:grid-cols-2">
           <CardField

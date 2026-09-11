@@ -339,7 +339,9 @@ describe("database services", () => {
 
     await settings.selectGatewayModel(alice, "openai/test");
     expect(await settings.getGatewayModel(alice)).toBe("openai/test");
-    expect(await settings.getGatewayModel(bob)).toBe("openai/gpt-5.6-sol-fast");
+    expect(await settings.getGatewayModel(bob)).toBe(
+      "anthropic/claude-sonnet-4.6"
+    );
   }, 15_000);
 });
 

@@ -1,3 +1,5 @@
+import { createHash } from "node:crypto";
+import { renderLinqInputRequests } from "@agent/lib/linq-clarifications";
 import { connectLinqCredentials } from "@vercel/connect/eve";
 import { LinqAPIV3 } from "@linqapp/sdk";
 import type { AdapterPostableMessage } from "chat";
@@ -67,6 +69,21 @@ const credentials = (
 export default linqChannel({
   credentials,
   events: {
+    async "input.requested"(event, context, session) {
+      const text = renderLinqInputRequests(event.requests);
+      if (!text || !context.thread) return;
+      const idempotencyKey = createHash("sha256")
+        .update(
+          JSON.stringify([
+            session.session.id,
+            event.requests.map((request) => request.requestId),
+          ])
+        )
+        .digest("hex");
+      await context.bot
+        .getAdapter("linq")
+        .postMessage(context.thread.id, { raw: text }, { idempotencyKey });
+    },
     async "action.result"(event, context, session) {
       const reaction = reactToMessageToolResultSchema.safeParse(event.result);
       if (event.status === "completed" && reaction.success) {

@@ -1,11 +1,25 @@
 import type { DynamicResolveContext } from "eve/instructions";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import executionSafety from "@agent/instructions/10-execution-safety";
 import roleInstructions from "@agent/instructions/20-role";
 import workerCoordination from "@agent/instructions/25-worker-coordination";
 import messageStyle from "@agent/instructions/30-message-style";
 
+vi.mock("@shared/environment/origin", () => ({
+  applicationOrigin: () => "https://lever-six.vercel.app",
+}));
+
 describe("agent instructions", () => {
+  it("supplies the deployed site and connection URL before any tool call", async () => {
+    const selected = await roleInstructions.events["turn.started"]?.(
+      {},
+      dynamicContext("linq-message")
+    );
+    expect(selected?.content).toContain(
+      "https://lever-six.vercel.app/#connections-heading"
+    );
+    expect(selected?.content).toContain("https://lever-six.vercel.app/vault");
+  });
   it.each([
     ["scheduled-worker", "isolated background session"],
     ["scheduled-result", "evaluating the completed outcome"],

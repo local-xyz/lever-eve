@@ -148,6 +148,9 @@ vi.mock("@vercel/blob", async (importOriginal) => {
   };
 });
 const handleActionResult = linqChannelCapture.config?.events?.["action.result"];
+const handleMessageCompleted =
+  linqChannelCapture.config?.events?.["message.completed"];
+if (!handleMessageCompleted) throw new Error("Expected completion handler.");
 if (!handleActionResult) {
   throw new Error("The Linq channel must configure action result delivery.");
 }
@@ -176,10 +179,76 @@ describe("Linq message delivery", () => {
     scheduleDeliveryCapture.release.mockResolvedValue(true);
   });
 
-  it("does not register automatic assistant text posting", () => {
-    expect(linqChannelCapture.config?.events?.["message.completed"]).toBeTypeOf(
-      "function"
+  it("texts durable clarification prompts with a retry-stable delivery key", async () => {
+    const handler = linqChannelCapture.config?.events?.["input.requested"];
+    if (!handler) throw new Error("Missing iMessage question handler");
+    const { context } = handlerContext();
+    const event = {
+      sequence: 0,
+      stepIndex: 0,
+      turnId: "turn-1",
+      requests: [
+        {
+          requestId: "question-1",
+          kind: "question" as const,
+          prompt: "What would you like?",
+          action: {
+            kind: "tool-call" as const,
+            callId: "question-1",
+            toolName: "ask_question",
+            input: {},
+          },
+        },
+      ],
+    };
+    await handler(event, context, sessionContext());
+    await handler(event, context, sessionContext());
+    expect(linqChannelCapture.postMessage).toHaveBeenCalledTimes(2);
+    const first = linqChannelCapture.postMessage.mock.calls[0];
+    expect(JSON.stringify(first?.[1])).toContain("Reply here");
+    expect(JSON.stringify(first?.[1])).not.toContain("session UI");
+    expect(first?.[2]?.idempotencyKey).toBe(
+      linqChannelCapture.postMessage.mock.calls[1]?.[2]?.idempotencyKey
     );
+  });
+
+  it("never delivers ordinary assistant text", async () => {
+    const { context, post } = handlerContext();
+    await handleMessageCompleted(completedMessage(), context, sessionContext());
+    expect(linqChannelCapture.postMessage).not.toHaveBeenCalled();
+    expect(post).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    sendMessageResult({ kind: "message", text: "Hello!" }),
+    reactToMessageResult({ operation: "add", type: "heart" }),
+  ])(
+    "does not repeat text after a message or reaction was delivered",
+    async (event) => {
+      const { context } = handlerContext();
+      await handleActionResult(event, context, sessionContext());
+      await handleMessageCompleted(
+        completedMessage(),
+        context,
+        sessionContext()
+      );
+      expect(linqChannelCapture.postMessage).not.toHaveBeenCalled();
+    }
+  );
+
+  it("keeps tool preambles and scheduled reports silent", async () => {
+    const { context } = handlerContext();
+    await handleMessageCompleted(
+      { ...completedMessage(), finishReason: "tool-calls" },
+      context,
+      sessionContext()
+    );
+    await handleMessageCompleted(
+      completedMessage(),
+      context,
+      sessionContext("scheduled-result")
+    );
+    expect(linqChannelCapture.postMessage).not.toHaveBeenCalled();
   });
 
   it("posts send_message output as raw iMessage text", async () => {
@@ -859,6 +928,16 @@ describe("Linq message delivery", () => {
     expect(post).not.toHaveBeenCalled();
   });
 });
+
+function completedMessage() {
+  return {
+    finishReason: "stop" as const,
+    message: "Hello!",
+    sequence: 0,
+    stepIndex: 0,
+    turnId: "turn-1",
+  };
+}
 
 function sendMessageResult(
   output: ActionHandlerParameters[0]["result"] extends { output: infer Output }

@@ -1,6 +1,7 @@
 {
   "$schema": "https://json.schemastore.org/tsconfig",
   "compilerOptions": {
+    "types": ["eve/workflow-modules"],
     "allowImportingTsExtensions": true,
     "allowJs": true,
     "esModuleInterop": true,

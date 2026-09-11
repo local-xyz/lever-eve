@@ -10,6 +10,8 @@ const eveDevServerSchema = z.object({
 });
 
 interface ScheduledRunRequestBodies {
+  "/eve/v1/internal/connection-enrichment/dispatch": Record<string, never>;
+  "/eve/v1/internal/vault/dispatch": Record<string, never>;
   "/internal/scheduled-run/report": { runId: string };
   "/internal/scheduled-run/respond": {
     answer: string;

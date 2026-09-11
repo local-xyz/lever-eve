@@ -15,12 +15,13 @@ import {
   type VaultCreateItem,
 } from "@shared/vault/schema";
 import type { AccessScope } from "@shared/identity/access-scope";
-import { db, vaultItems } from "@db";
+import { db, vaultItems, vaultSetupRequests } from "@db";
 import {
   deleteEncryptedSecret,
   readEncryptedSecret,
   writeEncryptedSecret,
 } from "@db/services/secrets";
+import { assertVaultRequestMatches } from "./vault-requests";
 import { ensureScope } from "@db/services/scope";
 import { getInstallationSecrets } from "@db/services/installation-secrets";
 
@@ -33,8 +34,6 @@ const vaultRecordSchema = z.object({
   updatedAt: z.string(),
 });
 
-type VaultRecord = z.infer<typeof vaultRecordSchema>;
-
 const selection = {
   account: vaultItems.account,
   createdAt: vaultItems.createdAt,
@@ -43,15 +42,6 @@ const selection = {
   label: vaultItems.label,
   updatedAt: vaultItems.updatedAt,
 };
-
-async function createVaultRecord(scope: AccessScope, record: VaultRecord) {
-  await db.insert(vaultItems).values({
-    ...record,
-    createdAt: new Date(record.createdAt),
-    updatedAt: new Date(record.updatedAt),
-    workspaceId: scope.workspaceId,
-  });
-}
 
 export async function listVaultItems(scope: AccessScope) {
   return vaultRecordSchema
@@ -109,23 +99,60 @@ export async function saveVaultItem(
   input: VaultCreateItem
 ) {
   await ensureScope(scope);
-  const id = randomUUID();
-  const now = new Date().toISOString();
-  await writeVaultSecret(scope, id, input.secret);
-
-  try {
-    await createVaultRecord(scope, {
-      account: vaultAccountHint(input),
-      createdAt: now,
+  const { secretEncryptionKey } = await getInstallationSecrets();
+  return db.transaction(async (transaction) => {
+    const [request] = input.setupRequestId
+      ? await transaction
+          .select()
+          .from(vaultSetupRequests)
+          .where(
+            and(
+              eq(vaultSetupRequests.id, input.setupRequestId),
+              eq(vaultSetupRequests.workspaceId, scope.workspaceId),
+              eq(vaultSetupRequests.userId, scope.userId)
+            )
+          )
+          .for("update")
+      : [];
+    if (input.setupRequestId) {
+      if (!request)
+        throw new Error("This setup link does not belong to your account.");
+      assertVaultRequestMatches(request.request, input);
+      if (request.credentialId)
+        return {
+          id: request.credentialId,
+          notificationQueued:
+            request.status === "ready" || request.status === "delivered",
+        };
+      if (request.status !== "pending" || request.expiresAt <= new Date())
+        throw new Error(
+          "This setup request has expired or was cancelled. Add the credential directly in your vault instead."
+        );
+    }
+    const id = randomUUID();
+    const now = new Date();
+    await writeEncryptedSecret(
+      scope,
       id,
+      encryptVaultSecret(scope, id, input.secret, secretEncryptionKey),
+      transaction
+    );
+    await transaction.insert(vaultItems).values({
+      id,
+      workspaceId: scope.workspaceId,
       kind: input.kind,
       label: input.label,
+      account: vaultAccountHint(input),
+      createdAt: now,
       updatedAt: now,
     });
-  } catch (error) {
-    await deleteEncryptedSecret(scope, id);
-    throw error;
-  }
+    if (request)
+      await transaction
+        .update(vaultSetupRequests)
+        .set({ credentialId: id, status: "ready" })
+        .where(eq(vaultSetupRequests.id, request.id));
+    return { id, notificationQueued: !!request };
+  });
 }
 
 export async function readVaultSecret(scope: AccessScope, id: string) {
@@ -137,15 +164,6 @@ export async function readVaultSecret(scope: AccessScope, id: string) {
 
 export async function hasVaultSecret(scope: AccessScope, id: string) {
   return (await readEncryptedSecret(scope, id)) !== undefined;
-}
-
-async function writeVaultSecret(scope: AccessScope, id: string, value: string) {
-  const { secretEncryptionKey } = await getInstallationSecrets();
-  await writeEncryptedSecret(
-    scope,
-    id,
-    encryptVaultSecret(scope, id, value, secretEncryptionKey)
-  );
 }
 
 function vaultAccountHint(input: VaultCreateItem) {

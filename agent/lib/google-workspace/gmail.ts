@@ -256,7 +256,7 @@ const secretPatterns: readonly (readonly [RegExp, string])[] = [
   [/\b(?:\d[ -]*?){13,19}\b/gu, "[payment number redacted]"],
 ];
 
-function redactGoogleText(value: string, maxLength = 12_000) {
+export function redactGoogleText(value: string, maxLength = 12_000) {
   let redacted = value.slice(0, maxLength);
   for (const [pattern, replacement] of secretPatterns) {
     redacted = redacted.replace(pattern, replacement);

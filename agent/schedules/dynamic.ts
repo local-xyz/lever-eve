@@ -1,7 +1,10 @@
 import { defineSchedule, type ScheduleToFn } from "eve/schedules";
 import scheduledRunChannel from "@agent/channels/scheduled-run";
 import { dispatchScheduledReport } from "@agent/lib/schedules/report";
-import { postScheduledReport } from "@agent/lib/schedules/request";
+import {
+  postScheduledReport,
+  postScheduledRunRoute,
+} from "@shared/eve/request";
 import {
   claimReadyScheduledAgentRuns,
   listRecoverableScheduledReports,
@@ -16,6 +19,13 @@ export default defineSchedule({
   cron: "* * * * *",
   run({ to, waitUntil }) {
     waitUntil(dispatchDueWork(to));
+    waitUntil(
+      postScheduledRunRoute(
+        "/eve/v1/internal/connection-enrichment/dispatch",
+        {}
+      )
+    );
+    waitUntil(postScheduledRunRoute("/eve/v1/internal/vault/dispatch", {}));
   },
 });
 

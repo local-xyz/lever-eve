@@ -34,4 +34,18 @@ in `agent/channels/eve.ts` using public `defineChannel` and `routeAuth` APIs.
 The Linq webhook verifier already converts an unsuccessful OIDC verification
 into `false`, so the extra bundled null-verifier patch was redundant.
 
+The Eve text-response patch also limits unaddressed replies to one matching
+request, accepts `N: answer` to select a request in a multi-request batch,
+and requires explicit approval labels (not numeric indices). Questions accept
+freeform replies by default unless explicitly closed. These changes exercise
+Eve's actual durable input resolver, not a parallel application inbox.
+`linq-clarifications.test.ts` covers the parser and channel presentation.
+
 No task-loop or prompt-placement patch is applied locally.
+
+The context patch exposes `getTaskDeliveryPhase()` from `eve/context`, reading
+Eve's existing runtime-owned `TurnTaskDeliveryKey`. Delivery enforcement uses
+this structured phase instead of recognizing internal instruction strings.
+This is a local compatibility API, not an upstream API: remove the bridge when
+Eve offers a public delivery-policy or task-phase accessor. Keep the pinned
+runtime test when upgrading; application code must not import internal keys.

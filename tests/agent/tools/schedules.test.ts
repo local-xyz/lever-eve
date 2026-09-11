@@ -271,6 +271,32 @@ describe("schedule tools", () => {
     expect(interactiveSend.inputSchema.safeParse(reply).success).toBe(true);
     expect(debugSend.inputSchema.safeParse(reply).success).toBe(true);
     expect(reportSend.inputSchema.safeParse(reply).success).toBe(true);
+    for (const tool of [interactiveSend, debugSend, reportSend]) {
+      const schema = tool.inputSchema;
+      if (!(schema instanceof z.ZodType))
+        throw new Error("Expected Zod schema.");
+      const jsonSchema = z.toJSONSchema(schema, { io: "input" });
+      expect(jsonSchema.type).toBe("object");
+      expect(jsonSchema).not.toHaveProperty("oneOf");
+      expect(jsonSchema).not.toHaveProperty("anyOf");
+      expect(
+        schema.safeParse({ kind: "link", url: "https://example.com" }).success
+      ).toBe(true);
+      expect(schema.safeParse({ kind: "message" }).success).toBe(false);
+      expect(
+        schema.safeParse({ kind: "link", text: "Missing URL" }).success
+      ).toBe(false);
+      expect(
+        schema.safeParse({
+          kind: "message",
+          text: "Hello",
+          url: "https://example.com",
+        }).success
+      ).toBe(false);
+      expect(
+        schema.safeParse({ kind: "link", url: "http://example.com" }).success
+      ).toBe(false);
+    }
   });
 
   it("owns web schedules by their Eve session", async () => {

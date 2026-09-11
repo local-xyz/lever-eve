@@ -1,3 +1,7 @@
+import { getTaskDeliveryPhase } from "eve/context";
+import { gateway } from "ai";
+import { requireMessageTool } from "@agent/lib/message-model";
+import { resolveModeValue } from "@agent/lib/mode";
 import { defineAgent, defineDynamic } from "eve";
 import { scheduledRunIdentity } from "@agent/lib/schedules/identity";
 import { isScheduledAgentRunLeaseActive } from "@db/services/scheduled-agent-run-leases";
@@ -21,7 +25,14 @@ export default defineAgent({
         }
         const caller = ctx.session.auth.current ?? ctx.session.auth.initiator;
         if (!caller) throw new Error("An authenticated user is required.");
-        return getGatewayModel(scopeFromPrincipal(caller));
+        const modelId = await getGatewayModel(scopeFromPrincipal(caller));
+        return resolveModeValue(ctx, { interactive: true })
+          ? requireMessageTool(
+              gateway(modelId),
+              ctx.messages,
+              getTaskDeliveryPhase()
+            )
+          : modelId;
       },
     },
   }),

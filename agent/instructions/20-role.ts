@@ -1,3 +1,4 @@
+import { productLinkContext } from "@agent/lib/product-links";
 import { defineDynamic } from "eve/instructions";
 import { resolveModeInstructions } from "@agent/lib/mode";
 import interactiveInstructions from "./content/role/interactive.md?raw";
@@ -8,7 +9,7 @@ export default defineDynamic({
   events: {
     "turn.started": (_event, context) =>
       resolveModeInstructions(context, {
-        interactive: interactiveInstructions,
+        interactive: `${interactiveInstructions}\n\n${productLinkContext()}`,
         "scheduled-report": scheduledReportInstructions,
         "scheduled-worker": scheduledWorkerInstructions,
       }),

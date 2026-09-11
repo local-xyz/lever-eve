@@ -207,6 +207,7 @@ export const paymentCardSecretStringSchema = serializedPayloadSchema(
 export const vaultCreateItemSchema = z
   .object({
     account: z.string().trim().max(200).default(""),
+    setupRequestId: z.uuid().optional(),
     kind: vaultCreateItemKindSchema,
     label: z.string().trim().min(1).max(120),
     secret: z.string().min(1).max(20_000),

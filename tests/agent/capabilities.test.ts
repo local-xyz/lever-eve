@@ -6,11 +6,20 @@ import browserAgent from "@agent/subagents/browser-agent/agent";
 import calendar from "@agent/tools/calendar";
 import contacts from "@agent/tools/contacts";
 import gmail from "@agent/tools/gmail";
+import productLinks from "@agent/tools/product-links";
 import messaging from "@agent/tools/messaging";
 import schedules from "@agent/tools/schedules";
 import vault from "@agent/tools/vault";
 
-const groupedTools = [calendar, contacts, gmail, messaging, schedules, vault];
+const groupedTools = [
+  calendar,
+  contacts,
+  gmail,
+  messaging,
+  productLinks,
+  schedules,
+  vault,
+];
 
 describe("authored mode capability matrix", () => {
   it("gives interactive turns the authored coordinator capabilities", async () => {
@@ -20,6 +29,7 @@ describe("authored mode capability matrix", () => {
       "calendar-create-event",
       "calendar-list-events",
       "contacts-search",
+      "get_product_link",
       "gmail-read-thread",
       "gmail-search",
       "gmail-send",
@@ -27,7 +37,6 @@ describe("authored mode capability matrix", () => {
       "personal_info__update",
       "react_to_message",
       "request_vault_import",
-      "request_vault_setup",
       "schedules-answer",
       "schedules-create",
       "schedules-list",
@@ -53,7 +62,6 @@ describe("authored mode capability matrix", () => {
 
   it("limits authored scheduled reporting tools to delivery or resuming its own run", async () => {
     expect(await authoredCapabilities("scheduled-result")).toEqual([
-      "request_vault_setup",
       "schedules-answer",
       "send_message",
     ]);
